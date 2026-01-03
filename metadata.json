@@ -1,0 +1,7 @@
+{
+  "name": "FinTrack Pro",
+  "description": "A comprehensive personal finance manager with AI-powered insights, receipt scanning, and detailed budget tracking.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
