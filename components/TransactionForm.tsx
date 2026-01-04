@@ -1,38 +1,66 @@
 
-import React, { useState } from 'react';
-import { CATEGORIES } from '../constants';
-import { TransactionType, Transaction } from '../types';
+import React, { useState, useRef } from 'react';
+import { TransactionType, Transaction, Category, PaymentMethod } from '../types';
 
 interface TransactionFormProps {
   onSave: (transaction: Omit<Transaction, 'id'>) => void;
   onCancel: () => void;
+  categories: Category[];
+  paymentMethods: PaymentMethod[];
   initialData?: Transaction;
 }
 
-const TransactionForm: React.FC<TransactionFormProps> = ({ onSave, onCancel, initialData }) => {
+const TransactionForm: React.FC<TransactionFormProps> = ({ onSave, onCancel, categories, paymentMethods, initialData }) => {
   const [type, setType] = useState<TransactionType>(initialData?.type || 'expense');
   const [amount, setAmount] = useState<string>(initialData?.amount.toString() || '');
-  const [categoryId, setCategoryId] = useState<string>(initialData?.categoryId || CATEGORIES[0].id);
+  const [categoryId, setCategoryId] = useState<string>(initialData?.categoryId || categories[0]?.id || '');
+  const [paymentMethodId, setPaymentMethodId] = useState<string>(initialData?.paymentMethodId || paymentMethods[0]?.id || '');
   const [note, setNote] = useState<string>(initialData?.note || '');
-  const [date, setDate] = useState<string>(initialData?.date ? new Date(initialData.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+  const [images, setImages] = useState<string[]>(initialData?.images || []);
+  
+  const initialDateObj = initialData?.date ? new Date(initialData.date) : new Date();
+  const [date, setDate] = useState<string>(initialDateObj.toISOString().split('T')[0]);
+  const [time, setTime] = useState<string>(initialDateObj.toTimeString().split(' ')[0].slice(0, 5));
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImages(prev => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || parseFloat(amount) <= 0) return;
+    
+    const fullTimestamp = new Date(`${date}T${time}:00`).toISOString();
+    
     onSave({
       amount: parseFloat(amount),
       type,
       categoryId,
+      paymentMethodId,
       note,
-      date: new Date(date).toISOString(),
+      date: fullTimestamp,
+      images,
     });
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300">
-        <div className="p-6">
-          <h2 className="text-xl font-bold mb-6">{initialData ? 'Edit Transaction' : 'New Transaction'}</h2>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[90vh]">
+        <div className="p-6 overflow-y-auto custom-scrollbar">
+          <h2 className="text-xl font-bold mb-6">{initialData ? 'Update Transaction' : 'New Transaction'}</h2>
           
           <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
             <button
@@ -53,7 +81,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSave, onCancel, ini
             <div>
               <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Amount</label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
                 <input
                   type="number"
                   step="0.01"
@@ -61,35 +89,63 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSave, onCancel, ini
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="0.00"
-                  className="w-full bg-slate-50 border-0 rounded-2xl py-4 pl-8 pr-4 text-2xl font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full bg-slate-50 border-0 rounded-2xl py-4 pl-10 pr-4 text-2xl font-bold focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Category</label>
-              <select
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full bg-slate-50 border-0 rounded-2xl p-4 focus:ring-2 focus:ring-blue-500 outline-none appearance-none"
-              >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.icon} {cat.name}
-                  </option>
-                ))}
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Category</label>
+                <select
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  className="w-full bg-slate-50 border-0 rounded-2xl p-4 focus:ring-2 focus:ring-blue-500 outline-none appearance-none text-sm"
+                >
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.icon} {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Payment Method</label>
+                <select
+                  value={paymentMethodId}
+                  onChange={(e) => setPaymentMethodId(e.target.value)}
+                  className="w-full bg-slate-50 border-0 rounded-2xl p-4 focus:ring-2 focus:ring-blue-500 outline-none appearance-none text-sm"
+                >
+                  {paymentMethods.map((pm) => (
+                    <option key={pm.id} value={pm.id}>
+                      {pm.icon} {pm.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Date</label>
-              <input
-                type="date"
-                required
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-slate-50 border-0 rounded-2xl p-4 focus:ring-2 focus:ring-blue-500 outline-none"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Date</label>
+                <input
+                  type="date"
+                  required
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full bg-slate-50 border-0 rounded-2xl p-4 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Time</label>
+                <input
+                  type="time"
+                  required
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                  className="w-full bg-slate-50 border-0 rounded-2xl p-4 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                />
+              </div>
             </div>
 
             <div>
@@ -99,11 +155,44 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSave, onCancel, ini
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="What was this for?"
-                className="w-full bg-slate-50 border-0 rounded-2xl p-4 focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full bg-slate-50 border-0 rounded-2xl p-4 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
               />
             </div>
 
-            <div className="flex gap-3 pt-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 uppercase mb-2">Images / Receipts</label>
+              <div className="flex flex-wrap gap-2">
+                {images.map((img, idx) => (
+                  <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden group">
+                    <img src={img} alt="receipt" className="w-full h-full object-cover" />
+                    <button 
+                      type="button"
+                      onClick={() => removeImage(idx)}
+                      className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-16 h-16 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-400 hover:border-blue-400 hover:text-blue-400 transition-colors"
+                >
+                  <span className="text-xl">+</span>
+                </button>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  multiple 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={handleImageUpload} 
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-4 sticky bottom-0 bg-white">
               <button
                 type="button"
                 onClick={onCancel}

@@ -6,6 +6,13 @@ export interface Category {
   name: string;
   icon: string;
   color: string;
+  isCustom?: boolean;
+}
+
+export interface PaymentMethod {
+  id: string;
+  name: string;
+  icon: string;
 }
 
 export interface Transaction {
@@ -13,8 +20,10 @@ export interface Transaction {
   amount: number;
   type: TransactionType;
   categoryId: string;
-  date: string;
+  paymentMethodId: string;
+  date: string; // ISO String including date and time
   note: string;
+  images?: string[]; // Array of base64 image strings
 }
 
 export interface Budget {
