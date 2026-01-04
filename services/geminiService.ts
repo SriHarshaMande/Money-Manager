@@ -8,10 +8,13 @@ export const analyzeFinances = async (
   transactions: Transaction[],
   categories: Category[]
 ) => {
-  const transactionData = transactions.map(t => ({
+  const safeTransactions = Array.isArray(transactions) ? transactions : [];
+  const safeCategories = Array.isArray(categories) ? categories : [];
+
+  const transactionData = safeTransactions.map(t => ({
     amount: t.amount,
     type: t.type,
-    category: categories.find(c => c.id === t.categoryId)?.name,
+    category: safeCategories.find(c => c.id === t.categoryId)?.name || 'Unknown',
     date: t.date
   }));
 
@@ -55,10 +58,12 @@ export const scanReceipt = async (base64Image: string): Promise<ReceiptScanResul
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: [
-        { inlineData: { mimeType: "image/jpeg", data: base64Image } },
-        { text: prompt }
-      ],
+      contents: {
+        parts: [
+          { inlineData: { mimeType: "image/jpeg", data: base64Image } },
+          { text: prompt }
+        ]
+      },
       config: {
         responseMimeType: "application/json",
         responseSchema: {

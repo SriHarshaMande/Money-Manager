@@ -8,41 +8,51 @@ import ManageModal from './components/ManageModal';
 import Insights from './components/Insights';
 import CalendarView from './components/CalendarView';
 import StatsView from './components/StatsView';
+import ImportModal from './components/ImportModal';
 import { analyzeFinances, scanReceipt } from './services/geminiService';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'home' | 'calendar' | 'stats' | 'settings'>('home');
   
-  // Load state from localStorage
+  // Load state from localStorage with robust fallback
   const [categories, setCategories] = useState<Category[]>(() => {
     try {
       const saved = localStorage.getItem('fintrack_categories');
-      return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
+      if (!saved || saved === 'undefined' || saved === 'null') return DEFAULT_CATEGORIES;
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : DEFAULT_CATEGORIES;
     } catch (e) { return DEFAULT_CATEGORIES; }
   });
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(() => {
     try {
       const saved = localStorage.getItem('fintrack_payment_methods');
-      return saved ? JSON.parse(saved) : DEFAULT_PAYMENT_METHODS;
+      if (!saved || saved === 'undefined' || saved === 'null') return DEFAULT_PAYMENT_METHODS;
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : DEFAULT_PAYMENT_METHODS;
     } catch (e) { return DEFAULT_PAYMENT_METHODS; }
   });
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     try {
       const saved = localStorage.getItem('fintrack_transactions');
-      return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
+      if (!saved || saved === 'undefined' || saved === 'null') return INITIAL_TRANSACTIONS;
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : INITIAL_TRANSACTIONS;
     } catch (e) { return INITIAL_TRANSACTIONS; }
   });
 
   const [insights, setInsights] = useState<FinancialInsight[]>(() => {
     try {
       const saved = localStorage.getItem('fintrack_insights');
-      return saved ? JSON.parse(saved) : [];
+      if (!saved || saved === 'undefined' || saved === 'null') return [];
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : [];
     } catch (e) { return []; }
   });
 
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [showManage, setShowManage] = useState(false);
   const [loadingInsights, setLoadingInsights] = useState(false);
@@ -50,20 +60,32 @@ const App: React.FC = () => {
   const [filterType, setFilterType] = useState<'all' | TransactionType>('all');
 
   // Persistence Effects
-  useEffect(() => localStorage.setItem('fintrack_categories', JSON.stringify(categories)), [categories]);
-  useEffect(() => localStorage.setItem('fintrack_payment_methods', JSON.stringify(paymentMethods)), [paymentMethods]);
-  useEffect(() => localStorage.setItem('fintrack_transactions', JSON.stringify(transactions)), [transactions]);
-  useEffect(() => localStorage.setItem('fintrack_insights', JSON.stringify(insights)), [insights]);
+  useEffect(() => {
+    if (categories) localStorage.setItem('fintrack_categories', JSON.stringify(categories));
+  }, [categories]);
+  useEffect(() => {
+    if (paymentMethods) localStorage.setItem('fintrack_payment_methods', JSON.stringify(paymentMethods));
+  }, [paymentMethods]);
+  useEffect(() => {
+    if (transactions) localStorage.setItem('fintrack_transactions', JSON.stringify(transactions));
+  }, [transactions]);
+  useEffect(() => {
+    if (insights) localStorage.setItem('fintrack_insights', JSON.stringify(insights));
+  }, [insights]);
 
   const stats = useMemo(() => {
-    const income = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-    const expenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    const safeTransactions = Array.isArray(transactions) ? transactions : [];
+    const income = safeTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const expenses = safeTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
     return { income, expenses, balance: income - expenses };
   }, [transactions]);
 
   const filteredTransactions = useMemo(() => {
-    if (filterType === 'all') return transactions;
-    return transactions.filter(t => t.type === filterType);
+    let list = Array.isArray(transactions) ? transactions : [];
+    if (filterType !== 'all') {
+      list = list.filter(t => t.type === filterType);
+    }
+    return [...list].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, filterType]);
 
   const handleSaveTransaction = (data: Omit<Transaction, 'id'>) => {
@@ -75,6 +97,13 @@ const App: React.FC = () => {
       setTransactions(prev => [transaction, ...prev]);
     }
     setShowForm(false);
+  };
+
+  const handleBulkImport = (data: { transactions: Transaction[], categories: Category[], paymentMethods: PaymentMethod[] }) => {
+    setCategories(data.categories || DEFAULT_CATEGORIES);
+    setPaymentMethods(data.paymentMethods || DEFAULT_PAYMENT_METHODS);
+    setTransactions(prev => [...(data.transactions || []), ...prev]);
+    alert(`Successfully imported ${data.transactions.length} records!`);
   };
 
   const deleteTransaction = (id: string, e: React.MouseEvent) => {
@@ -101,7 +130,8 @@ const App: React.FC = () => {
         if (result) {
           const matchedCategory = categories.find(c => c.name.toLowerCase().includes(result.category.toLowerCase())) || categories[categories.length - 1];
           handleSaveTransaction({
-            amount: result.amount, type: 'expense', categoryId: matchedCategory.id, paymentMethodId: paymentMethods[0]?.id || '',
+            amount: result.amount, type: 'expense', categoryId: matchedCategory?.id || categories[0]?.id || '10', 
+            paymentMethodId: paymentMethods[0]?.id || 'p1',
             date: result.date || new Date().toISOString(), note: result.merchant ? `Scanned: ${result.merchant}` : 'Scanned Receipt',
             images: [reader.result as string]
           });
@@ -109,6 +139,16 @@ const App: React.FC = () => {
       } catch (err) { alert("Failed to scan receipt."); } finally { setScanning(false); }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleRefreshInsights = async () => {
+    setLoadingInsights(true);
+    try {
+      const data = await analyzeFinances(transactions, categories);
+      if (data) setInsights(data);
+    } finally {
+      setLoadingInsights(false);
+    }
   };
 
   const formatCurrency = (val: number) => {
@@ -147,7 +187,7 @@ const App: React.FC = () => {
       <main className={`flex-1 overflow-y-auto px-6 pt-6 pb-24 ${activeTab === 'home' ? '-mt-8 z-20' : 'z-10'}`}>
         {activeTab === 'home' && (
           <div className="space-y-8">
-            <Insights insights={insights} loading={loadingInsights} onRefresh={() => analyzeFinances(transactions, categories).then(data => data && setInsights(data))} />
+            <Insights insights={insights} loading={loadingInsights} onRefresh={handleRefreshInsights} />
             <section>
               <div className="flex justify-between items-center mb-4">
                 <h2 className="font-bold text-slate-800 text-lg">Recent History</h2>
@@ -158,13 +198,13 @@ const App: React.FC = () => {
                 </div>
               </div>
               <div className="space-y-4">
-                {filteredTransactions.slice(0, 10).map((t) => {
-                  const category = categories.find(c => c.id === t.categoryId);
+                {filteredTransactions.slice(0, 15).map((t) => {
+                  const category = categories?.find(c => c.id === t.categoryId);
                   return (
                     <div key={t.id} onClick={() => openEditForm(t)} className="bg-white p-4 rounded-2xl flex items-center gap-4 shadow-sm hover:shadow-md transition-all cursor-pointer group">
-                      <div className={`w-12 h-12 rounded-2xl ${category?.color} flex items-center justify-center text-xl`}>{category?.icon}</div>
+                      <div className={`w-12 h-12 rounded-2xl ${category?.color || 'bg-slate-300'} flex items-center justify-center text-xl`}>{category?.icon || '📦'}</div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-slate-900 truncate">{t.note || category?.name}</h4>
+                        <h4 className="font-bold text-slate-900 truncate">{t.note || category?.name || 'Unknown'}</h4>
                         <p className="text-xs text-slate-400 font-medium">{new Date(t.date).toLocaleDateString([], { month: 'short', day: 'numeric' })}</p>
                       </div>
                       <div className="text-right">
@@ -176,6 +216,9 @@ const App: React.FC = () => {
                     </div>
                   );
                 })}
+                {filteredTransactions.length === 0 && (
+                  <div className="text-center py-10 text-slate-400 italic text-sm">No transactions found</div>
+                )}
               </div>
             </section>
           </div>
@@ -199,9 +242,14 @@ const App: React.FC = () => {
             <h2 className="text-2xl font-bold">Settings</h2>
             <div className="bg-white rounded-3xl p-6 space-y-4 shadow-sm">
               <button onClick={() => setShowManage(true)} className="w-full text-left flex items-center justify-between p-2 hover:bg-slate-50 rounded-xl">
-                <span className="font-medium">Manage Categories & Payments</span>
-                <span>⚙️</span>
+                <span className="font-medium text-slate-700">Manage Assets</span>
+                <span className="text-slate-400">⚙️</span>
               </button>
+              <button onClick={() => setShowImport(true)} className="w-full text-left flex items-center justify-between p-2 hover:bg-slate-50 rounded-xl">
+                <span className="font-medium text-slate-700">Import Legacy Data</span>
+                <span className="text-slate-400">📥</span>
+              </button>
+              <div className="border-t border-slate-100 my-2"></div>
               <button onClick={() => {if(window.confirm('Reset all data?')) {setTransactions([]); setInsights([]);}}} className="w-full text-left flex items-center justify-between p-2 text-red-500 hover:bg-red-50 rounded-xl">
                 <span className="font-medium">Reset Application Data</span>
                 <span>🗑️</span>
@@ -239,7 +287,7 @@ const App: React.FC = () => {
         </button>
         <button onClick={() => setActiveTab('settings')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'settings' ? 'text-blue-600' : 'text-slate-400'}`}>
            <span className="text-xl">⚙️</span>
-           <span className="text-[10px] font-bold uppercase tracking-tighter">Set</span>
+           <span className="text-[10px] font-bold uppercase tracking-tighter">Settings</span>
         </button>
       </nav>
 
@@ -249,6 +297,9 @@ const App: React.FC = () => {
       )}
       {showManage && (
         <ManageModal categories={categories} paymentMethods={paymentMethods} onUpdateCategories={setCategories} onUpdatePaymentMethods={setPaymentMethods} onClose={() => setShowManage(false)} />
+      )}
+      {showImport && (
+        <ImportModal categories={categories} paymentMethods={paymentMethods} onImport={handleBulkImport} onClose={() => setShowImport(false)} />
       )}
     </div>
   );

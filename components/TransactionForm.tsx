@@ -24,8 +24,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSave, onCancel, cat
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Fix: Explicitly type files as File[] to resolve 'unknown' type issue during reader.readAsDataURL(file)
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+    const files = Array.from(e.target.files || []) as File[];
     files.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
