@@ -118,8 +118,9 @@ export const parseLegacyData = (
       const typeLower = rawType.toLowerCase();
       if (typeLower.includes('income')) {
         type = 'income';
-      } else if (typeLower.includes('transfer')) {
-        type = 'expense';
+      } else if (typeLower.includes('transfer') || typeLower.includes('lent')) {
+        // Treat all 'Transfer', 'Transfer-out', and 'Lent' as 'lent' type per instructions
+        type = 'lent';
       }
 
       // Determine final category name for matching/creation
@@ -143,6 +144,7 @@ export const parseLegacyData = (
           name: finalCategoryName,
           icon: getBestIcon(finalCategoryName),
           color: 'bg-slate-500',
+          type: type === 'income' ? 'income' : 'expense',
           isCustom: true
         };
         currentCategories.push(category);
@@ -163,7 +165,10 @@ export const parseLegacyData = (
         id: `imp_${Math.random().toString(36).substr(2, 9)}_${i}`,
         amount: Math.abs(amount),
         type,
-        categoryId: category.id,
+        // Lent and Transfer types do not use standard expense categories in the current UI
+        // Fix: Removed 'type === 'transfer'' because 'type' is narrowed to 'income'|'expense'|'lent' 
+        // by the logic on line 105. Transfers are internally treated as 'lent'.
+        categoryId: type === 'lent' ? undefined : category.id,
         paymentMethodId: pm.id,
         date: parsedDate.toISOString(),
         note: rawNote || rawDesc || category.name,

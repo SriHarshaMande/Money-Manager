@@ -2,16 +2,21 @@
 import { Category, PaymentMethod } from './types';
 
 export const DEFAULT_CATEGORIES: Category[] = [
-  { id: '1', name: 'Food & Dining', icon: '🍔', color: 'bg-orange-500' },
-  { id: '2', name: 'Shopping', icon: '🛍️', color: 'bg-pink-500' },
-  { id: '3', name: 'Transport', icon: '🚗', color: 'bg-blue-500' },
-  { id: '4', name: 'Entertainment', icon: '🎬', color: 'bg-purple-500' },
-  { id: '5', name: 'Health', icon: '🏥', color: 'bg-red-500' },
-  { id: '6', name: 'Groceries', icon: '🛒', color: 'bg-emerald-500' },
-  { id: '7', name: 'Bills & Utilities', icon: '💡', color: 'bg-yellow-500' },
-  { id: '8', name: 'Salary', icon: '💰', color: 'bg-green-600' },
-  { id: '9', name: 'Investments', icon: '📈', color: 'bg-indigo-600' },
-  { id: '10', name: 'Others', icon: '📦', color: 'bg-slate-500' },
+  // Expense Categories
+  { id: '1', name: 'Food & Dining', icon: '🍔', color: 'bg-orange-500', type: 'expense' },
+  { id: '2', name: 'Shopping', icon: '🛍️', color: 'bg-pink-500', type: 'expense' },
+  { id: '3', name: 'Transport', icon: '🚗', color: 'bg-blue-500', type: 'expense' },
+  { id: '4', name: 'Entertainment', icon: '🎬', color: 'bg-purple-500', type: 'expense' },
+  { id: '5', name: 'Health', icon: '🏥', color: 'bg-red-500', type: 'expense' },
+  { id: '6', name: 'Groceries', icon: '🛒', color: 'bg-emerald-500', type: 'expense' },
+  { id: '7', name: 'Bills & Utilities', icon: '💡', color: 'bg-yellow-500', type: 'expense' },
+  { id: '10', name: 'Others', icon: '📦', color: 'bg-slate-500', type: 'expense' },
+  
+  // Income Categories
+  { id: '8', name: 'Salary', icon: '💰', color: 'bg-green-600', type: 'income' },
+  { id: '9', name: 'Investments', icon: '📈', color: 'bg-indigo-600', type: 'income' },
+  { id: '11', name: 'Freelance', icon: '💻', color: 'bg-cyan-600', type: 'income' },
+  { id: '12', name: 'Gifts', icon: '🎁', color: 'bg-rose-500', type: 'income' },
 ];
 
 export const DEFAULT_PAYMENT_METHODS: PaymentMethod[] = [
