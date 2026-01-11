@@ -17,6 +17,13 @@ export interface PaymentMethod {
   icon: string;
 }
 
+export interface PartialReturn {
+  id: string;
+  amount: number;
+  date: string;
+  note?: string;
+}
+
 export interface Transaction {
   id: string;
   amount: number;
@@ -29,6 +36,7 @@ export interface Transaction {
   // Fields for Lent transactions
   isReturned?: boolean;
   returnedDate?: string;
+  partialReturns?: PartialReturn[];
 }
 
 export interface Budget {
