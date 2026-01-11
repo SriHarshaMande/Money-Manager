@@ -22,6 +22,11 @@ const App: React.FC = () => {
     return saved === null ? true : saved === 'true';
   });
 
+  // Web Access state
+  const [webAccessEnabled, setWebAccessEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('fintrack_webaccess') === 'true';
+  });
+
   const [categories, setCategories] = useState<Category[]>(() => {
     try {
       const saved = localStorage.getItem('fintrack_categories');
@@ -75,6 +80,10 @@ const App: React.FC = () => {
     }
     localStorage.setItem('fintrack_darkmode', isDarkMode.toString());
   }, [isDarkMode]);
+
+  useEffect(() => {
+    localStorage.setItem('fintrack_webaccess', webAccessEnabled.toString());
+  }, [webAccessEnabled]);
 
   useEffect(() => {
     localStorage.setItem('fintrack_categories', JSON.stringify(categories));
@@ -157,7 +166,7 @@ const App: React.FC = () => {
         const isReturning = !t.isReturned;
         return { 
           ...t, 
-          isReturned: isReturning, 
+          isReturning: isReturning, 
           returnedDate: isReturning ? new Date().toISOString() : undefined 
         };
       }
@@ -201,6 +210,13 @@ const App: React.FC = () => {
     } finally {
       setLoadingInsights(false);
     }
+  };
+
+  // Simulated Private IP for demo purposes
+  const getSimulatedAddress = () => {
+    const hostname = window.location.hostname === 'localhost' ? '192.168.1.15' : window.location.hostname;
+    const port = window.location.port || '8080';
+    return `http://${hostname}:${port}`;
   };
 
   return (
@@ -322,6 +338,51 @@ const App: React.FC = () => {
                   >
                     <div className={`w-6 h-6 bg-white rounded-full shadow-md transition-all duration-300 transform ${isDarkMode ? 'translate-x-6' : 'translate-x-0'}`}></div>
                   </button>
+                </div>
+
+                <div className="h-px bg-slate-100 dark:bg-zinc-800 mx-4"></div>
+
+                {/* Web Access Feature */}
+                <div className={`p-4 bg-slate-50 dark:bg-black/40 rounded-3xl border transition-all duration-500 ${webAccessEnabled ? 'border-blue-500/50 dark:border-blue-900/50' : 'border-transparent dark:border-zinc-800'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-4 text-left">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-colors ${webAccessEnabled ? 'bg-blue-500 text-white' : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500'}`}>
+                        {webAccessEnabled ? '📶' : '🌐'}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-slate-800 dark:text-zinc-100">Web Access</p>
+                        <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-bold uppercase tracking-wider">Open in browser</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setWebAccessEnabled(!webAccessEnabled)} 
+                      className={`w-14 h-8 rounded-full p-1 transition-all duration-300 ${webAccessEnabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-zinc-700'}`}
+                    >
+                      <div className={`w-6 h-6 bg-white rounded-full shadow-md transition-all duration-300 transform ${webAccessEnabled ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                    </button>
+                  </div>
+                  
+                  {webAccessEnabled && (
+                    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-zinc-800 animate-in slide-in-from-top-2">
+                      <p className="text-[10px] text-slate-500 dark:text-zinc-500 mb-3 px-1 leading-relaxed">
+                        Your device is hosting this app on your local network. Connect your PC or Tablet to the same WiFi and visit:
+                      </p>
+                      <div className="bg-white dark:bg-black border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 flex items-center justify-between group">
+                        <code className="text-blue-600 dark:text-blue-400 font-mono text-xs font-bold truncate">
+                          {getSimulatedAddress()}
+                        </code>
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(getSimulatedAddress());
+                            alert('Address copied to clipboard!');
+                          }}
+                          className="text-[10px] bg-slate-100 dark:bg-zinc-800 px-3 py-1.5 rounded-xl font-bold uppercase tracking-tighter hover:bg-blue-600 hover:text-white transition-all active:scale-90"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                <div className="h-px bg-slate-100 dark:bg-zinc-800 mx-4"></div>
